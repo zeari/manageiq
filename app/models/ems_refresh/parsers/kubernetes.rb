@@ -18,9 +18,21 @@ module EmsRefresh::Parsers
       get_pods(inventory)
       get_endpoints(inventory)
       get_services(inventory)
+      get_registries
+      get_images
 
       EmsRefresh.log_inv_debug_trace(@data, "data:")
       @data
+    end
+
+    def get_images
+      images = @data_index.fetch_path(:container_image, :by_ref_and_registry_host_port).try(:values) || []
+      process_collection(images, :container_images) { |n| n }
+    end
+
+    def get_registries
+      registries = @data_index.fetch_path(:container_image_registry, :by_host_and_port).try(:values) || []
+      process_collection(registries, :container_image_registries) { |n| n }
     end
 
     def get_nodes(inventory)
@@ -319,15 +331,47 @@ module EmsRefresh::Parsers
 
     def parse_container(container, pod_id)
       {
-        :type          => 'ContainerKubernetes',
-        :ems_ref       => "#{pod_id}_#{container.name}_#{container.image}",
-        :name          => container.name,
-        :image         => container.image,
-        :restart_count => container.restartCount,
-        :backing_ref   => container.containerID,
-        :image_ref     => container.imageID
+        :type            => 'ContainerKubernetes',
+        :ems_ref         => "#{pod_id}_#{container.name}_#{container.image}",
+        :name            => container.name,
+        :image           => container.image,
+        :restart_count   => container.restartCount,
+        :backing_ref     => container.containerID,
+        :image_ref       => container.imageID,
+        :container_image => parse_container_image(container.image, container.imageID)
       }
+
       # TODO, state
+    end
+
+    def parse_container_image(image, imageID)
+      container_image, container_image_registry = parse_image_name(image, imageID)
+      host_port = nil
+
+      unless container_image_registry.nil?
+        host_port = "#{container_image_registry[:host]}:#{container_image_registry[:port]}"
+
+        stored_container_image_registry = @data_index.fetch_path(
+          :container_image_registry, :by_host_and_port,  host_port)
+        if stored_container_image_registry.nil?
+          @data_index.store_path(
+            :container_image_registry, :by_host_and_port, host_port, container_image_registry)
+          stored_container_image_registry = container_image_registry
+        end
+      end
+
+      stored_container_image = @data_index.fetch_path(
+        :container_image, :by_ref_and_registry_host_port,  "#{host_port}:#{container_image[:image_ref]}")
+
+      if stored_container_image.nil?
+        @data_index.store_path(
+          :container_image, :by_ref_and_registry_host_port,
+          "#{host_port}:#{container_image[:image_ref]}", container_image)
+        stored_container_image = container_image
+      end
+
+      stored_container_image[:container_image_registry] = stored_container_image_registry
+      stored_container_image
     end
 
     def parse_container_port_config(port_config, pod_id, container_name)
@@ -381,6 +425,42 @@ module EmsRefresh::Parsers
         :creation_timestamp => item.metadata.creationTimestamp,
         :resource_version   => item.metadata.resourceVersion
       }
+    end
+
+    def parse_image_name(image, imageID)
+      container_image_registry = nil
+      container_image = {
+        :name      => nil,
+        :tag       => nil,
+        :image_ref => imageID
+      }
+
+      slash_count = image.count('/')
+
+      if slash_count > 1
+        registry_index = image.index('/')
+        registry_uri = image[0..registry_index - 1].split(':')
+        container_image_registry = {
+          :name => registry_uri[0],
+          :host => registry_uri[0],
+          :port => registry_uri[1],
+        }
+      else
+        registry_index = -1
+      end
+
+      tag_index = image[registry_index + 1..-1].rindex(':')
+
+      if tag_index.nil?
+        container_image[:name] = image[registry_index + 1..-1]
+      else
+        container_image.merge!(
+          :name => image[registry_index + 1..registry_index + tag_index],
+          :tag  => image[registry_index + tag_index + 2..-1]
+        )
+      end
+
+      return container_image, container_image_registry
     end
   end
 end

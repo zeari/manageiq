@@ -32,6 +32,7 @@ describe EmsRefresh::Refreshers::KubernetesRefresher do
       assert_specific_container_service
       assert_specific_container_replicator
       assert_specific_container_project
+      assert_specific_container_image_and_registry
     end
   end
 
@@ -45,6 +46,8 @@ describe EmsRefresh::Refreshers::KubernetesRefresher do
     ContainerDefinition.count.should == 3
     ContainerReplicator.count.should == 2
     ContainerProject.count.should == 1
+    ContainerImage.count.should == 3
+    ContainerImageRegistry.count.should == 1
   end
 
   def assert_ems
@@ -68,7 +71,7 @@ describe EmsRefresh::Refreshers::KubernetesRefresher do
       # :ems_ref       => "a7566742-e73f-11e4-b613-001a4a5f4a02_heapster_kubernetes/heapster:v0.9",
       :name          => "heapster",
       :restart_count => 0,
-      :image         => "kubernetes/heapster:v0.11.0",
+      :image         => "example.com:1234/kubernetes/heapster:v0.11.0",
       # :backing_ref   => "docker://87cd51044d7175c246fa1fa7699253fc2aecb769021837a966fa71e9dcb54d71"
     )
 
@@ -176,6 +179,21 @@ describe EmsRefresh::Refreshers::KubernetesRefresher do
     @container_pr.should have_attributes(
       # :ems_ref => "581874d7-e385-11e4-9d96-f8b156af4ae1",
       :name    => "default"
+    )
+  end
+
+  def assert_specific_container_image_and_registry
+    @image = ContainerImage.where(:name => "kubernetes/heapster").first
+    @image.should have_attributes(
+      :name      => "kubernetes/heapster",
+      :tag       => "v0.11.0",
+      :image_ref => "docker://6207b36028f56023248abaaa8ed68c964c2364f731c24299cff8a904f1b33cfa",
+    )
+
+    @image.container_image_registry.should_not be_nil
+    @image.container_image_registry.should have_attributes(
+      :host => "example.com",
+      :port => "1234",
     )
   end
 end
