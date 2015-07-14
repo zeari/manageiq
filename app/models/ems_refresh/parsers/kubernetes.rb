@@ -427,40 +427,31 @@ module EmsRefresh::Parsers
       }
     end
 
-    def parse_image_name(image, imageID)
-      container_image_registry = nil
-      container_image = {
-        :name      => nil,
-        :tag       => nil,
-        :image_ref => imageID
-      }
+    def parse_image_name(image, image_ref)
+      parts = %r{
+        \A
+        (?:
+          (?<host>.*?)
+          (?::(?<port>.*?))?
+          /(?=.*/)
+        )?
+        (?<name>.*?)
+        (?::(?<tag>[^:]*?))?
+        \z
+      }x.match(image)
 
-      slash_count = image.count('/')
-
-      if slash_count > 1
-        registry_index = image.index('/')
-        registry_uri = image[0..registry_index - 1].split(':')
-        container_image_registry = {
-          :name => registry_uri[0],
-          :host => registry_uri[0],
-          :port => registry_uri[1],
-        }
-      else
-        registry_index = -1
-      end
-
-      tag_index = image[registry_index + 1..-1].rindex(':')
-
-      if tag_index.nil?
-        container_image[:name] = image[registry_index + 1..-1]
-      else
-        container_image.merge!(
-          :name => image[registry_index + 1..registry_index + tag_index],
-          :tag  => image[registry_index + tag_index + 2..-1]
-        )
-      end
-
-      return container_image, container_image_registry
+      [
+        {
+          :name      => parts[:name],
+          :tag       => parts[:tag],
+          :image_ref => image_ref,
+        },
+        parts[:host] && {
+          :name => parts[:host],
+          :host => parts[:host],
+          :port => parts[:port],
+        },
+      ]
     end
   end
 end
