@@ -1,0 +1,46 @@
+{
+  "data": {
+    "heatmaps": {
+      "nodeCpuUsage": [
+        {
+          "id": 1,
+          "name": "nginx",
+          "provider": "Molecule",
+          "highestSecerity": 3
+        },
+        {
+          "id": 2,
+          "name": "image-inspector",
+          "provider": "Molecule",
+          "highestSecerity": 2
+        },
+        {
+          "id": 3,
+          "name": "noop",
+          "provider": "Molecule",
+          "highestSecerity": 1
+        },
+        {
+          "id": 4,
+          "name": "noop1",
+          "provider": "Molecule",
+          "highestSecerity": 0
+        },
+        {
+          "id": 5,
+          "name": "noop2",
+          "provider": "Molecule",
+          "highestSecerity": -1
+        }
+      ]
+    },
+    "images": {
+      "total": 5,
+      "high_severity_scap_infringers": 1,
+      "medium_severity_scap_infringers": 1,
+      "low_severity_scap_infringers": 1,
+      "no_violation_with_scap_data": 1,
+      "no_violation_and_no_scap_data": 1
+    }
+  }
+}
