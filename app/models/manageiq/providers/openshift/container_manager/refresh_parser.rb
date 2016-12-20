@@ -172,29 +172,33 @@ module ManageIQ::Providers
       end
 
       def parse_openshift_image(openshift_image)
-        id = openshift_image[:dockerImageReference]
+        id = openshift_image[:dockerImageReference] || openshift_image[:metadata][:name] || ""
         ref = ContainerImage::DOCKER_PULLABLE_PREFIX + id
         new_result = parse_container_image(id, ref)
 
-        json = JSON.parse(openshift_image[:dockerImageManifest])
-        new_result[:tag] ||= json["tag"] if json.keys.include?("tag")
+        if openshift_image[:dockerImageManifest].present?
+          json = JSON.parse(openshift_image[:dockerImageManifest])
+          new_result[:tag] ||= json["tag"] if json.keys.include?("tag")
+        end
 
         docker_metadata = openshift_image[:dockerImageMetadata]
-        new_result.merge!(
-          :architecture          => docker_metadata[:Architecture],
-          :author                => docker_metadata[:Author],
-          :command               => docker_metadata[:Config][:Cmd],
-          :entrypoint            => docker_metadata[:Config][:Entrypoint],
-          :docker_version        => docker_metadata[:DockerVersion],
-          :exposed_ports         => parse_exposed_ports(
-            docker_metadata[:Config][:ExposedPorts]),
-          :environment_variables => parse_env_variables(
-            docker_metadata[:Config][:Env]),
-          :size                  => docker_metadata[:Size],
-          :labels                => parse_labels(openshift_image),
-          :docker_labels         => parse_identifying_attributes(docker_metadata[:Config][:Labels],
-                                                                 'docker_labels', "openshift"),
-        )
+        if docker_metadata.present?
+          new_result.merge!(
+            :architecture          => docker_metadata[:Architecture],
+            :author                => docker_metadata[:Author],
+            :command               => docker_metadata[:Config][:Cmd],
+            :entrypoint            => docker_metadata[:Config][:Entrypoint],
+            :docker_version        => docker_metadata[:DockerVersion],
+            :exposed_ports         => parse_exposed_ports(
+              docker_metadata[:Config][:ExposedPorts]),
+            :environment_variables => parse_env_variables(
+              docker_metadata[:Config][:Env]),
+            :size                  => docker_metadata[:Size],
+            :labels                => parse_labels(openshift_image),
+            :docker_labels         => parse_identifying_attributes(docker_metadata[:Config][:Labels],
+                                                                   'docker_labels', "openshift"),
+          )
+        end
         new_result
       end
     end
