@@ -58,7 +58,7 @@ module AssignmentMixin
           next
         end
       end
-      tag = "#{klass.underscore}/label/managed/#{obj.name}/#{obj.value}"
+      tag = "#{klass.underscore}/label/managed/#{Base64.strict_encode64(obj.name)}/#{Base64.strict_encode64(obj.value)}"
       tag_add(tag, :ns => namespace)
     end
     reload
@@ -81,7 +81,7 @@ module AssignmentMixin
         tag = Tag.find_by(:name => "/" + parts.join("/"))
         result[:tags] << [Classification.find_by(:tag_id => tag.id), klass] unless tag.nil?
       when :label
-        label = CustomAttribute.find_by(:name => parts[1], :value => parts[2])
+        label = CustomAttribute.find_by(:name => Base64.decode64(parts[1]), :value => Base64.decode64(parts[2]))
         result[:labels] << [label, klass] unless label.nil?
       end
     end
